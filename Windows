@@ -1,0 +1,69 @@
+Windows.cpp
+#include"Windows.hpp"
+#include <SDL3/SDL.h>
+#include <iostream>
+
+namespace Ecosystem {
+namespace Graphics {
+
+Window::Window(const std::string& title, int width, int height)
+    : mWidth(width), mHeight(height)
+{
+    // Window wrapper assumes SDL_Init was called externally.
+
+    mWindow = SDL_CreateWindow(title.c_str(),
+                               SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                               mWidth, mHeight,
+                               SDL_WINDOW_RESIZABLE);
+    if (!mWindow) {
+        std::cerr << "SDL_CreateWindow failed: " << SDL_GetError() << std::endl;
+        mOpen = false;
+        return;
+    }
+    mRenderer = SDL_CreateRenderer(mWindow, nullptr, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!mRenderer) {
+        std::cerr << "SDL_CreateRenderer failed: " << SDL_GetError() << std::endl;
+        SDL_DestroyWindow(mWindow);
+        mWindow = nullptr;
+        mOpen = false;
+        return;
+    }
+    mOpen = true;
+}
+
+Window::~Window() {
+    if (mRenderer) SDL_DestroyRenderer(mRenderer);
+    if (mWindow) SDL_DestroyWindow(mWindow);
+}
+
+void Window::PollEvents() {
+    mResetRequested = false;
+    mSpawnFood = false;
+
+    SDL_Event ev;
+    while (SDL_PollEvent(&ev)) {
+        if (ev.type == SDL_EVENT_QUIT) {
+            mOpen = false;
+        } else if (ev.type == SDL_EVENT_KEY_DOWN) {
+            SDL_Keycode k = ev.key.keysym.sym;
+            if (k == SDLK_ESCAPE) {
+                mOpen = false;
+            } else if (k == SDLK_SPACE) {
+                mPaused = !mPaused;
+            } else if (k == SDLK_r) {
+                mResetRequested = true;
+            } else if (k == SDLK_f) {
+                mSpawnFood = true;
+            } else if (k == SDLK_UP) {
+                mTimeScale *= 1.5f;
+                if (mTimeScale > 8.0f) mTimeScale = 8.0f;
+            } else if (k == SDLK_DOWN) {
+                mTimeScale /= 1.5f;
+                if (mTimeScale < 0.125f) mTimeScale = 0.125f;
+            }
+        }
+    }
+}
+
+} // namespace Graphics
+} // namespace Ecosystem
