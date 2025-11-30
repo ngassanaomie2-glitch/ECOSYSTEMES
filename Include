@@ -1,7 +1,194 @@
+Ecosystem.hpp
+PP
+#define ECOSYSTEM_CORE_ECOSYSTEM_HPP
 
+#include "Entity.hpp"
+#include <vector>
+#include <memory>
+#include <cstdint>
 
+namespace Ecosystem {
+namespace Core {
 
+/**
+ * Ecosystem: manager of the world and the entities.
+ * - stores entities in vector<unique_ptr<Entity>>
+ * - updates, handles predation, reproduction, stats
+ */
+class Ecosystem {
+public:
+    Ecosystem(int worldWidth, int worldHeight);
+    ~Ecosystem();
 
+    // initialization helpers
+    void Initialize(int initialHerbivores, int initialCarnivores, int initialPlants);
+
+    // update/render loop
+    void Update(float deltaTime);
+    void Render(void* sdlRenderer) const;
+
+    // Spawning helpers
+    void SpawnPlant(const Vector2D& pos);
+    void SpawnHerbivore(const Vector2D& pos);
+    void SpawnCarnivore(const Vector2D& pos);
+
+    // Reset world
+    void Reset();
+
+    // Statistics
+    struct Statistics {
+        int totalHerbivores{0};
+        int totalCarnivores{0};
+        int totalPlants{0};
+        int birthsToday{0};
+        int deathsToday{0};
+        float averageEnergy{0.f};
+    };
+    Statistics GetStatistics() const;
+
+    // Access for tests / renderer
+    const std::vector<std::unique_ptr<Entity>>& GetEntities() const noexcept { return mEntities; }
+
+private:
+    int mWidth, mHeight;
+    std::vector<std::unique_ptr<Entity>> mEntities;
+
+    // bookkeeping
+    int mBirthsToday;
+    int mDeathsToday;
+
+    // internal helpers
+    void HandlePredation();
+    void HandleReproduction();
+    void CleanupDead();
+    void UpdateStatistics();
+
+    // helper for random offsets (declared here, defined in cpp)
+    static float RandomOffset();
+};
+
+} // namespace Core
+} // namespace Ecosystem
+
+Entity.hpp
+#endif // ECOSYSTEM_CORE_ECOSYSTEM_HPP
+
+#ifndef ECOSYSTEM_CORE_ENTITY_HPP
+#define ECOSYSTEM_CORE_ENTITY_HPP
+
+#include "Structs.hpp"
+#include <string>
+#include <memory>
+
+namespace Ecosystem {
+namespace Core {
+
+// Types of entity
+enum class EntityType { PLANT, HERBIVORE, CARNIVORE };
+
+// Base class for all entities
+class Entity {
+public:
+    // Constructeur paramétré
+    Entity(EntityType type, const Vector2D& pos, const std::string& name);
+    // Copy constructor (for reproduction) - child age reset in copy
+    Entity(const Entity& other);
+    virtual ~Entity() = default;
+
+    // Non default constructible
+    Entity() = delete;
+
+    // Update per tick
+    virtual void Update(float deltaTime) = 0;
+    // Render using SDL renderer (void* to avoid SDL includes in header)
+    virtual void Render(void* sdlRenderer) const = 0;
+
+    // Basic interface
+    EntityType GetType() const noexcept { return mType; }
+    const std::string& GetName() const noexcept { return mName; }
+
+    bool IsAlive() const noexcept { return mIsAlive; }
+    void Kill() noexcept { mIsAlive = false; }
+
+    float GetEnergy() const noexcept { return mEnergy; }
+    int GetAge() const noexcept { return mAge; }
+    int GetMaxAge() const noexcept { return mMaxAge; }
+
+    const Vector2D& GetPosition() const noexcept { return mPosition; }
+    void SetPosition(const Vector2D& p) noexcept { mPosition = p; }
+
+    float GetSize() const noexcept { return mSize; }
+    const Color& GetColor() const noexcept { return mColor; }
+
+    // Actions
+    void Eat(float energy);            // change energy (positive add, negative subtract / kill)
+    bool CanReproduce() const noexcept;
+    std::unique_ptr<Entity> Reproduce() const; // returns nullptr by default; concrete reproduction handled by Ecosystem
+
+protected:
+    EntityType mType;
+    std::string mName;
+
+    // Protected data with encapsulation via methods
+    float mEnergy;
+    float mMaxEnergy;
+    int mAge;
+    int mMaxAge;
+    bool mIsAlive;
+
+    Vector2D mPosition;
+    float mSize;
+    Color mColor;
+
+    // Helper to advance age (used by derived classes)
+    void AgeBy(float deltaTime) noexcept;
+};
+
+} // namespace Core
+} // namespace Ecosystem
+
+#endif // ECOSYSTEM_CORE_ENTITY_HPP
+#ifndef ECOSYSTEM_CORE_STRUCTS_HPP
+#define ECOSYSTEM_CORE_STRUCTS_HPP
+
+Structs.hpp
+#include <cstdint>
+#include <cmath>
+
+namespace Ecosystem {
+namespace Core {
+
+// Simple 2D vector for positions, velocities, etc.
+struct Vector2D {
+    float x{0.f};
+    float y{0.f};
+    Vector2D() = default;
+    Vector2D(float _x, float _y) : x(_x), y(_y) {}
+    float Distance(const Vector2D& o) const noexcept {
+        float dx = x - o.x;
+        float dy = y - o.y;
+        return std::sqrt(dx*dx + dy*dy);
+    }
+    Vector2D operator+(const Vector2D& o) const noexcept { return {x+o.x, y+o.y}; }
+    Vector2D operator-(const Vector2D& o) const noexcept { return {x-o.x, y-o.y}; }
+    Vector2D operator*(float s) const noexcept { return {x*s, y*s}; }
+};
+
+// RGBA color
+struct Color {
+    uint8_t r{255}, g{255}, b{255}, a{255};
+    Color() = default;
+    Color(uint8_t R, uint8_t G, uint8_t B, uint8_t A = 255) : r(R), g(G), b(B), a(A) {}
+    static Color Red() { return {200,30,30,255}; }
+    static Color Green() { return {60,180,75,255}; }
+    static Color Blue() { return {70,130,200,255}; }
+    static Color White() { return {255,255,255,255}; }
+};
+
+} // namespace Core
+} // namespace Ecosystem
+
+#endif // ECOSYSTEM_CORE_STRUCTS_HPP
 
 
 
