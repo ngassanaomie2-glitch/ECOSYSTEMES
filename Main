@@ -1,0 +1,99 @@
+#include <SDL3/SDL.h>
+#include <iostream>
+#include <memory>
+#include <chrono>
+#include <cstdlib>
+
+#include "Core/Ecosystem.hpp"
+#include "Graphics/Window.hpp"
+#include "Core/Time.hpp"
+
+int main(int argc, char** argv) {
+    (void)argc; (void)argv;
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
+        std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
+        return -1;
+    }
+
+    const int width = 1024;
+    const int height = 768;
+
+    // Create window wrapper
+    Ecosystem::Graphics::Window window("Ecosystem Simulator", width, height);
+    if (!window.IsOpen()) {
+        std::cerr << "Failed to create window" << std::endl;
+        SDL_Quit();
+        return -1;
+    }
+
+    SDL_Renderer* renderer = window.GetRenderer();
+    if (!renderer) {
+        std::cerr << "Renderer null" << std::endl;
+        SDL_Quit();
+        return -1;
+    }
+
+    // Create ecosystem and initialize populations (professor numbers as example)
+    Ecosystem::Core::Ecosystem world(width, height);
+    world.Initialize(15, 3, 25); // 15 herbivores, 3 carnivores, 25 plants
+
+    Ecosystem::Core::Time timer;
+
+    // Main loop
+    bool running = true;
+    while (running && window.IsOpen()) {
+        timer.Tick();
+        float dt = timer.GetDelta();
+
+        // Poll and handle events
+        window.PollEvents();
+
+        if (window.ShouldQuit()) break;
+        if (window.ResetRequested()) {
+            world.Reset();
+            world.Initialize(15,3,25);
+        }
+        if (window.SpawnFoodRequested()) {
+            // spawn several plants near center
+            for (int i=0;i<10;++i) {
+                world.SpawnPlant({ static_cast<float>(width/2) + (rand()%120 - 60),
+                                   static_cast<float>(height/2) + (rand()%80 - 40) });
+            }
+        }
+
+        // update
+        if (!window.IsPaused()) {
+            world.Update(dt * window.GetTimeScale());
+        }
+
+        // render
+        SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
+        SDL_RenderClear(renderer);
+
+        world.Render(renderer);
+
+        // simple on-screen stats via console too
+        auto stats = world.GetStatistics();
+        static float accum = 0.f;
+        accum += dt;
+        if (accum > 1.0f) {
+            std::cout << "Plants: " << stats.totalPlants
+                      << " Herbivores: " << stats.totalHerbivores
+                      << " Carnivores: " << stats.totalCarnivores
+                      << " Births: " << stats.birthsToday
+                      << " Deaths: " << stats.deathsToday
+                      << " AvgEnergy: " << stats.averageEnergy
+                      << std::endl;
+            accum = 0.f;
+        }
+
+        SDL_RenderPresent(renderer);
+
+        // small delay to avoid 100% CPU; SDL_RenderPresent with vsync may handle it
+        SDL_Delay(2);
+    }
+
+    SDL_Quit();
+    return 0;
+}
