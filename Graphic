@@ -1,0 +1,55 @@
+#ifndef ECOSYSTEM_GRAPHICS_WINDOW_HPP
+#define ECOSYSTEM_GRAPHICS_WINDOW_HPP
+
+#include <SDL3/SDL.h>
+#include <string>
+
+namespace Ecosystem {
+namespace Graphics {
+
+/**
+ * Simple SDL3 window wrapper:
+ * - RAII for SDL_Window and SDL_Renderer
+ * - input flags required by the professor (pause/reset/spawn/speed)
+ */
+class Window {
+public:
+    Window(const std::string& title, int width, int height);
+    ~Window();
+
+    bool IsOpen() const noexcept { return mOpen; }
+    SDL_Renderer* GetRenderer() const noexcept { return mRenderer; }
+    int GetWidth() const noexcept { return mWidth; }
+    int GetHeight() const noexcept { return mHeight; }
+
+    // Poll events and update internal flags
+    void PollEvents();
+
+    // query flags
+    bool IsPaused() const noexcept { return mPaused; }
+    bool ResetRequested() const noexcept { return mResetRequested; }
+    bool SpawnFoodRequested() const noexcept { return mSpawnFood; }
+    float GetTimeScale() const noexcept { return mTimeScale; }
+    bool ShouldQuit() const noexcept { return !mOpen; }
+
+    // clear per-frame transient flags
+    void ClearTransientFlags() noexcept { mResetRequested = false; mSpawnFood = false; }
+
+private:
+    SDL_Window* mWindow{nullptr};
+    SDL_Renderer* mRenderer{nullptr};
+    bool mOpen{false};
+
+    int mWidth{800}, mHeight{600};
+
+    // controls
+    bool mPaused{false};
+    bool mResetRequested{false};
+    bool mSpawnFood{false};
+    float mTimeScale{1.0f};
+};
+
+} // namespace Graphics
+} // namespace Ecosystem
+
+#endif // ECOSYSTEM_GRAPHICS_WINDOW_HPP
